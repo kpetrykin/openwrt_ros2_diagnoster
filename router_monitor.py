@@ -3,7 +3,7 @@ from openwrt.ubus import Ubus
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
-class RouterStatusGetter:
+class RouterMonitor:
     def __init__(self, host: str, username: str, password: str) -> None:
         try:
             self._ubus = Ubus(host=host, username=username, password=password)
@@ -12,9 +12,9 @@ class RouterStatusGetter:
             print('Error during initialization: ', e)
         
     def get_router_status(self) -> List:
-        return self._get_modems()
+        return self.get_modems()
     
-    def _get_modems(self) -> List:
+    def get_modems(self) -> List:
         modems = self._ubus.api_call("call", "kroks.dev.modem", "object", {})
         if modems is None:
             print('Failed to get modems')
@@ -43,7 +43,7 @@ class RouterStatusGetter:
                 
                 pp.pprint([signal, net_check, links])
                 
-    def _get_cpu(self) -> List:
+    def get_cpu(self) -> List:
         r = self._ubus.api_call("call", "system", "info", {})
         if r is not None:
             load = []
@@ -51,6 +51,8 @@ class RouterStatusGetter:
                 load.append(f'{float(l) / 65536.0:.2}')
                 
             pp.pprint(load)
+            
+            return load
         else:
             print('Failed to get cpu info')
             return None
@@ -62,8 +64,8 @@ class RouterStatusGetter:
         pp.pprint(r)
 
 if __name__ == "__main__":
-    rsg = RouterStatusGetter(host="http://192.168.1.1/ubus", username="root", password="123")
+    rsg = RouterMonitor(host="http://192.168.1.1/ubus", username="root", password="123")
     rsg.get_router_status()
-    rsg._get_cpu()
-    rsg._get_memory()
+    rsg.get_cpu()
+    rsg.get_memory()
     
