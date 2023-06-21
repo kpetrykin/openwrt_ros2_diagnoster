@@ -1,53 +1,68 @@
 import rclpy
 from rclpy.node import Node
-import diagnostic_updater as du
+import diagnostic_msgs
+import diagnostic_updater
 import random
+import time
 
-from router_status_getter import RouterStatusGetter
+from router_monitor import RouterMonitor
 
 class RouterDiagnoster(Node):
-    def __init__(self):
+    def __init__(self, router_monitor) -> None:
         super().__init__('router_diagnoster')
+
+        self._router_monitor = router_monitor
         
-        self._diag_status = du.DiagnosticStatus()
-        self._diag_status.level = du.DiagnosticStatus.OK
-        self._diag_status.name = 'Router status'
-        self._diag_status.message = 'Router is OK'
-        self._diag_status.hardware_id = 'KROKS Router'
-        self._diag_status.values = []
+        self.declare_parameter('cpu_critical_level', 0.9)
+        self._cpu_critical_level = self.get_parameter('cpu_critical_level')
+
+    def diagnose_cpu(self, status_updater):
+        diag_status =  diagnostic_msgs.msg.DiagnosticStatus.ERROR
+        diag_message = 'Unknown error'
         
-        self._diag_pub = self.create_publisher(
-            du.DiagnosticArray, '/diagnostics', 10)
+        try:
+            cpu_data = self._router_monitor.get_cpu()
+            
+            diag_status =  diagnostic_msgs.msg.DiagnosticStatus.OK
+            diag_message = 'CPU is OK'
+            
+            status_updater.add('1 min average load', str(cpu_data[0]))
+            
+            status_updater.add('5 min average load', str(cpu_data[1]))
+            if float(cpu_data[1]) > self._cpu_critical_level.value:
+                diag_status =  diagnostic_msgs.msg.DiagnosticStatus.WARN
+                diag_message = '5 min average cpu load is too high!'
+                
+            status_updater.add('15 min average load', str(cpu_data[2]))
+            if float(cpu_data[2]) > self._cpu_critical_level.value:
+                diag_status =  diagnostic_msgs.msg.DiagnosticStatus.ERROR
+                diag_message = '15 min average cpu load is too high!'
+            
+            
+        except Exception as e:
+            diag_status =  diagnostic_msgs.msg.DiagnosticStatus.ERROR
+            diag_message = f'Error getting CPU data: {e}'
+            
+        status_updater.summary(
+           diag_status,
+           diag_message)
         
-        self.current_msg = None
-        self.pubtimer = self.create_timer(0.1, self._publish_diag)
-        
-    def _publish_diag(self):
-        new_msg = du.DiagnosticArray()
-        
-        if len(self._diag_status.values) == 0:
-            new_kv = du.KeyValue()
-            new_kv.key = 'rand_stable'
-            new_kv.value = str(random.randint(0, 100))
-            self._diag_status.values.append(new_kv)
-        else:
-            self._diag_status.values[0].value = str(random.randint(0, 100))
-        
-        new_msg.status.append(self._diag_status)
-        self._diag_pub.publish(new_msg)
+        return status_updater
         
 def main(args=None):
     rclpy.init(args=args)
-    try:
-        rd = RouterDiagnoster()
-        rclpy.spin(rd)
-    except KeyboardInterrupt:
-        pass
-    except SystemExit:
-        pass
-    except Exception:
-        import traceback
-        traceback.print_exc()
+    
+    rm = RouterMonitor(host="http://192.168.1.1/ubus", username="root", password="123")
+    rd = RouterDiagnoster(rm)
+    
+    updater = diagnostic_updater.Updater(rd)
+    updater.setHardwareID('Kroks_router')
+    
+    updater.add('/router/cpu', rd.diagnose_cpu)
+    
+    rclpy.spin(rd)
+    rd.destroy_node()
+    rclpy.shutdown()
         
 if __name__ == "__main__":
     main()
