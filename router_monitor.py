@@ -28,7 +28,7 @@ class RouterMonitor:
         return self.get_modems()
 
     def get_modems(self) -> List:
-        modems = self._ubus.api_call("call", "kroks.dev.modem", "object", {})
+        modems = self._api_call("call", "kroks.dev.modem", "object", {})
         if modems is None:
             print('Failed to get modems')
             return None
@@ -79,9 +79,11 @@ class RouterMonitor:
 
     def get_memory(self) -> List:
         r = self._ubus.api_call("call", "system", "info", {})
-        load = r['load'][0] / 65536.0
-        print(load)
-        pp.pprint(r)
+        if r is not None:
+            return float(r['memory']['free']) / float(r['memory']['total']) * 100
+        else:
+            print('Failed to get mmeory info')
+            raise ConnectionError("Connection to router lost")
 
 
 if __name__ == "__main__":
