@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 from openwrt.ubus import Ubus
 import pprint
 import time
@@ -24,37 +24,6 @@ class RouterMonitor:
             except Exception as e:
                 print('Error during connection: ', e)
 
-    def get_router_status(self) -> List:
-        return self.get_modems()
-
-    def get_modems(self) -> List:
-        modems = self._api_call("call", "kroks.dev.modem", "object", {})
-        if modems is None:
-            print('Failed to get modems')
-            return None
-        else:
-            for i, modem in modems.items():
-                print(f"*********************{i}***************************")
-                signal = None
-                try:
-                    signal = modem['storage']['signal']
-                except Exception:
-                    pass
-
-                net_check = None
-                try:
-                    net_check = modem['kroks.net.check']
-                except Exception:
-                    pass
-
-                links = None
-                try:
-                    links = modem['storage']['generic']['link-modulation']
-                except Exception:
-                    pass
-
-                pp.pprint([signal, net_check, links])
-                
     def _api_call(self, *args, **kwargs):
         try:
             return self._ubus.api_call(*args, **kwargs)
@@ -63,6 +32,35 @@ class RouterMonitor:
             print('Reconnecting...')
             self._connect()
 
+    def get_modem(self, modem_index) -> Dict:
+        r = self._api_call("call", "kroks.dev.modem", "object", {})
+        if r is not None:
+            # pp.pprint(r['modem1'])
+            modem = {}
+            modem['connected_to_network'] = r[modem_index]['kroks.net.check']['status']
+
+            modem['online'] = False
+            for check in r[modem_index]['kroks.net.check']['check']:
+                if check['status'] == True:
+                    modem['online'] = True
+                    break
+                
+            modem['rssi'] = None
+            
+            try:
+                for k, v in r[modem_index]['storage']['signal'].items():
+                    if 'rssi' in v:
+                        if v['rssi'] != '--':
+                            modem['rssi'] = v['rssi']
+                            break
+            except:
+                pass
+
+            return modem
+        else:
+            print(f'Failed to get {modem_index} info')
+            raise ConnectionError("Connection to router lost")
+
     def get_cpu(self) -> List:
         r = self._api_call("call", "system", "info", {})
         if r is not None:
@@ -70,7 +68,7 @@ class RouterMonitor:
             for l in r['load']:
                 load.append(f'{float(l) / 65536.0:.2}')
 
-            pp.pprint(load)
+            # pp.pprint(load)
 
             return load
         else:
@@ -83,6 +81,14 @@ class RouterMonitor:
             return float(r['memory']['free']) / float(r['memory']['total']) * 100
         else:
             print('Failed to get mmeory info')
+            raise ConnectionError("Connection to router lost")
+        
+    def get_interfaces(self) -> List:
+        r = self._ubus.api_call("call", "network.interface", "dump", {})
+        if r is not None:
+            return r['interface']
+        else:
+            print('Failed to get interfaces info')
             raise ConnectionError("Connection to router lost")
 
 
