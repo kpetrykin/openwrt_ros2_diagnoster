@@ -28,7 +28,8 @@ class RouterDiagnoster(Node):
                 diag_status = diagnostic_msgs.msg.DiagnosticStatus.OK
                 diag_message = f'{diag_name} is OK'
                 try:
-                    status_updater, diag_status, diag_message = func(self, status_updater, diag_status, diag_message)
+                    status_updater, diag_status, diag_message = func(
+                        self, status_updater, diag_status, diag_message)
                 except Exception as e:
                     diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
                     diag_message = f'Error getting {diag_name} data: {e}'
@@ -70,59 +71,32 @@ class RouterDiagnoster(Node):
 
         return status_updater, diag_status, diag_message
 
-    def diagnose_modem1(self, status_updater):
-        diag_status = diagnostic_msgs.msg.DiagnosticStatus.OK
-        diag_message = 'Modem1 is OK'
-        try:
-            modem_data = self._router_monitor.get_modem('modem1')
-            for k, v in modem_data.items():
-                if k == 'online' and v == False and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
+    @diagnose_method('Modem1')
+    def diagnose_modem1(self, status_updater, diag_status, diag_message):
+        return self._diagnose_modem('modem1', status_updater,
+                                    diag_status, diag_message)
+
+    @diagnose_method('Modem2')
+    def diagnose_modem2(self, status_updater, diag_status, diag_message):
+        return self._diagnose_modem('modem2', status_updater,
+                                    diag_status, diag_message)
+
+    def _diagnose_modem(self, modem_name, status_updater, diag_status, diag_message):
+        modem_data = self._router_monitor.get_modem(modem_name)
+        for k, v in modem_data.items():
+            if k == 'online' and v == False and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
+                diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
+                diag_message = f'{modem_name} is offline!'
+            if k == 'connected_to_network' and v == False:
+                diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
+                diag_message = f'{modem_name} is not connected to celluar network!'
+            if k == 'rssi' and v is not None and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
+                if float(v) <= -100:
                     diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
-                    diag_message = 'Modem1 is offline!'
-                if k == 'connected_to_network' and v == False:
-                    diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
-                    diag_message = 'Modem1 is not connected to celluar network!'
-                if k == 'rssi' and v is not None and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
-                    if float(v) <= -100:
-                        diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
-                        diag_message = 'Signal level low!'
-                status_updater.add(k, str(v))
-        except Exception as e:
-            diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
-            diag_message = f'Error getting modem1 data: {e}'
+                    diag_message = 'Signal level low!'
+            status_updater.add(k, str(v))
 
-        status_updater.summary(
-            diag_status,
-            diag_message)
-
-        return status_updater
-
-    def diagnose_modem2(self, status_updater):
-        diag_status = diagnostic_msgs.msg.DiagnosticStatus.OK
-        diag_message = 'Modem2 is OK'
-        try:
-            modem_data = self._router_monitor.get_modem('modem2')
-            for k, v in modem_data.items():
-                if k == 'online' and v == False and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
-                    diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
-                    diag_message = 'Modem2 is offline!'
-                if k == 'connected_to_network' and v == False:
-                    diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
-                    diag_message = 'Modem2 is not connected to celluar network!'
-                if k == 'rssi' and v is not None and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
-                    if float(v) <= -100:
-                        diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
-                        diag_message = 'Signal level low!'
-                status_updater.add(k, str(v))
-        except Exception as e:
-            diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
-            diag_message = f'Error getting modem2 data: {e}'
-
-        status_updater.summary(
-            diag_status,
-            diag_message)
-
-        return status_updater
+        return status_updater, diag_status, diag_message
 
     @diagnose_method('Interfaces')
     def diagnose_interfaces(self, status_updater, diag_status, diag_message):
