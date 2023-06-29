@@ -5,16 +5,29 @@ import diagnostic_updater
 import random
 import time
 
-from router_monitor import RouterMonitor
+from openwrt_ros2_diagnoster.openwrt_data_getter import OpenWRTDataGetter
 
 
 class RouterDiagnoster(Node):
-    def __init__(self, router_monitor) -> None:
+    def __init__(self, router_data_getter):
         super().__init__('router_diagnoster')
 
-        self._router_monitor = router_monitor
+        self._router_data_getter = router_data_getter
 
-        self.declare_parameter('cpu_critical_level', 0.1)
+        self.declare_parameter('router_host', 'http://192.168.1.1/ubus')
+        self._router_host = self.get_parameter('router_host')
+
+        self.declare_parameter('router_username', 'root')
+        self._router_username = self.get_parameter('router_username')
+
+        self.declare_parameter('router_password', '123')
+        self._router_password = self.get_parameter('router_password')
+
+        self._router_data_getter.connect(self._router_host,
+                                         self._router_username,
+                                         self._router_password)
+
+        self.declare_parameter('cpu_critical_level', 1.0)
         self._cpu_critical_level = self.get_parameter('cpu_critical_level')
 
         self.declare_parameter('free_memory_critical_level', 5.0)
@@ -44,7 +57,7 @@ class RouterDiagnoster(Node):
 
     @diagnose_method('CPU')
     def diagnose_cpu(self, status_updater, diag_status, diag_message):
-        cpu_data = self._router_monitor.get_cpu()
+        cpu_data = self._router_data_getter.get_cpu()
 
         status_updater.add('1 min average load', str(cpu_data[0]))
 
@@ -62,7 +75,7 @@ class RouterDiagnoster(Node):
 
     @diagnose_method('Memory')
     def diagnose_memory(self, status_updater, diag_status, diag_message):
-        memory_data = self._router_monitor.get_memory()
+        memory_data = self._router_data_getter.get_memory()
         status_updater.add('Free memory, %', str(memory_data))
 
         if float(memory_data) < self._free_memory_critical_level.value:
@@ -82,7 +95,7 @@ class RouterDiagnoster(Node):
                                     diag_status, diag_message)
 
     def _diagnose_modem(self, modem_name, status_updater, diag_status, diag_message):
-        modem_data = self._router_monitor.get_modem(modem_name)
+        modem_data = self._router_data_getter.get_modem(modem_name)
         for k, v in modem_data.items():
             if k == 'online' and v == False and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
                 diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
@@ -102,7 +115,7 @@ class RouterDiagnoster(Node):
     def diagnose_interfaces(self, status_updater, diag_status, diag_message):
         diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
         diag_message = 'No one interface is online!'
-        interfaces_data = self._router_monitor.get_interfaces()
+        interfaces_data = self._router_data_getter.get_interfaces()
         for interface in interfaces_data:
             if interface['interface'] not in ['lan', 'loopback']:
                 status_updater.add(
@@ -117,12 +130,11 @@ class RouterDiagnoster(Node):
 def main(args=None):
     rclpy.init(args=args)
 
-    rm = RouterMonitor(host="http://192.168.1.1/ubus",
-                       username="root", password="123")
-    rd = RouterDiagnoster(rm)
+    owdg = OpenWRTDataGetter()
+    rd = RouterDiagnoster(owdg)
 
     updater = diagnostic_updater.Updater(rd)
-    updater.setHardwareID('Kroks_router')
+    updater.setHardwareID('kroks_router')
 
     updater.add('/router/devices/cpu', rd.diagnose_cpu)
     updater.add('/router/devices/memory', rd.diagnose_memory)

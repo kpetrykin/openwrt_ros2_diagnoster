@@ -5,16 +5,14 @@ import time
 pp = pprint.PrettyPrinter(indent=4)
 
 
-class RouterMonitor:
-    def __init__(self, host: str, username: str, password: str) -> None:
+class OpenWRTDataGetter:
+    def __init__(self) -> None:
+        self._ubus = None
+
+    def connect(self, host: str, username: str, password: str):
         self._host = host
         self._username = username
         self._password = password
-        self._ubus = None
-
-        self._connect()
-
-    def _connect(self):
         connect_result = None
         while connect_result is None:
             try:
@@ -30,7 +28,8 @@ class RouterMonitor:
         except Exception as e:
             print('API call failed: ', e)
             print('Reconnecting...')
-            self._connect()
+            self.connect(host=self._host, username=self._username,
+                         password=self._password)
 
     def get_modem(self, modem_index) -> Dict:
         r = self._api_call("call", "kroks.dev.modem", "object", {})
@@ -44,9 +43,9 @@ class RouterMonitor:
                 if check['status'] == True:
                     modem['online'] = True
                     break
-                
+
             modem['rssi'] = None
-            
+
             try:
                 for k, v in r[modem_index]['storage']['signal'].items():
                     if 'rssi' in v:
@@ -82,7 +81,7 @@ class RouterMonitor:
         else:
             print('Failed to get mmeory info')
             raise ConnectionError("Connection to router lost")
-        
+
     def get_interfaces(self) -> List:
         r = self._ubus.api_call("call", "network.interface", "dump", {})
         if r is not None:
@@ -93,8 +92,7 @@ class RouterMonitor:
 
 
 if __name__ == "__main__":
-    rsg = RouterMonitor(host="http://192.168.1.1/ubus",
-                        username="root", password="123")
-    rsg.get_router_status()
+    rsg = OpenWRTDataGetter(host="http://192.168.1.1/ubus",
+                            username="root", password="123")
     rsg.get_cpu()
     rsg.get_memory()
