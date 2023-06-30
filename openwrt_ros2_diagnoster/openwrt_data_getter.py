@@ -9,7 +9,7 @@ class OpenWRTDataGetter:
     def __init__(self) -> None:
         self._ubus = None
 
-    def connect(self, host: str, username: str, password: str):
+    def connect(self, host: str, username: str, password: str) -> None:
         self._host = host
         self._username = username
         self._password = password
@@ -37,20 +37,31 @@ class OpenWRTDataGetter:
             # pp.pprint(r['modem1'])
             modem = {}
             modem['connected_to_network'] = r[modem_index]['kroks.net.check']['status']
+            modem['reliability'] = r[modem_index]['kroks.net.check']['reliability']
 
             modem['online'] = False
+            rtt_avg = 0
+            rtt_counter = 0
             for check in r[modem_index]['kroks.net.check']['check']:
                 if check['status'] == True:
                     modem['online'] = True
-                    break
+                if 'rtt_avg' in check:
+                    print('rtt_avg: ', check['rtt_avg'])
+                    rtt_avg += float(check['rtt_avg'])
+                    rtt_counter += 1
 
-            modem['rssi'] = None
+            if rtt_counter != 0:
+                modem['RTT'] = rtt_avg / rtt_counter
+            else:
+                modem['RTT'] = 0
+
+            modem['RSSI'] = None
 
             try:
                 for k, v in r[modem_index]['storage']['signal'].items():
                     if 'rssi' in v:
                         if v['rssi'] != '--':
-                            modem['rssi'] = v['rssi']
+                            modem['RSSI'] = v['rssi']
                             break
             except:
                 pass

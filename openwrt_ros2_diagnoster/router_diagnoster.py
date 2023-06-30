@@ -23,9 +23,9 @@ class RouterDiagnoster(Node):
         self.declare_parameter('router_password', '123')
         self._router_password = self.get_parameter('router_password')
 
-        self._router_data_getter.connect(self._router_host,
-                                         self._router_username,
-                                         self._router_password)
+        self._router_data_getter.connect(self._router_host.value,
+                                         self._router_username.value,
+                                         self._router_password.value)
 
         self.declare_parameter('cpu_critical_level', 1.0)
         self._cpu_critical_level = self.get_parameter('cpu_critical_level')
@@ -33,6 +33,9 @@ class RouterDiagnoster(Node):
         self.declare_parameter('free_memory_critical_level', 5.0)
         self._free_memory_critical_level = self.get_parameter(
             'free_memory_critical_level')
+        
+        self.declare_parameter('internet_signal_critical_level', 20.0)
+        self._internet_signal_critical_level = self.get_parameter('internet_signal_critical_level')
 
     # Decorator for diagnose methods
     def diagnose_method(diag_name):
@@ -103,8 +106,8 @@ class RouterDiagnoster(Node):
             if k == 'connected_to_network' and v == False:
                 diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
                 diag_message = f'{modem_name} is not connected to celluar network!'
-            if k == 'rssi' and v is not None and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
-                if float(v) <= -100:
+            if k == 'reliability' and v is not None and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
+                if float(v) <= -self._internet_signal_critical_level.value:
                     diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
                     diag_message = 'Signal level low!'
             status_updater.add(k, str(v))
