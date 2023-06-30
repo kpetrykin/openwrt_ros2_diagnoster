@@ -10,7 +10,7 @@ def generate_launch_description():
             name='router_diagnoster',
             parameters=[
                 {
-                    'router_host': 'http://192.168.1.1/ubus',
+                    'router_host': '192.168.1.1',
                     'router_username': 'root',
                     'router_password': '123',
                     'cpu_critical_level': .5,

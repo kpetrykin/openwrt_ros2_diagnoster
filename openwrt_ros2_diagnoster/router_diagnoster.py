@@ -117,7 +117,7 @@ class RouterDiagnoster(Node):
     @diagnose_method('Interfaces')
     def diagnose_interfaces(self, status_updater, diag_status, diag_message):
         diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
-        diag_message = 'No one interface is online!'
+        diag_message = 'No one WAN interface is online!'
         interfaces_data = self._router_data_getter.get_interfaces()
         for interface in interfaces_data:
             if interface['interface'] not in ['lan', 'loopback']:
@@ -125,7 +125,7 @@ class RouterDiagnoster(Node):
                     interface['interface'], str(interface['up']))
                 if interface['up']:
                     diag_status = diagnostic_msgs.msg.DiagnosticStatus.OK
-                    diag_message = 'Interfaces are OK'
+                    diag_message = 'OK, we have at least one WAN interface'
 
         return status_updater, diag_status, diag_message
     
@@ -135,7 +135,7 @@ class RouterDiagnoster(Node):
         
         if link_up:
             diag_status = diagnostic_msgs.msg.DiagnosticStatus.OK
-            diag_message = f'LAN{index} has link'
+            diag_message = f'LAN{index} OK'
         else:
             diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
             diag_message = f'LAN{index} has no link!'
@@ -161,7 +161,7 @@ def main(args=None):
     owdg = OpenWRTDataGetter()
     rd = RouterDiagnoster(owdg)
 
-    updater = diagnostic_updater.Updater(rd)
+    updater = diagnostic_updater.Updater(rd, 5)
     updater.setHardwareID('kroks_router')
 
     updater.add('/router/devices/cpu', rd.diagnose_cpu)
