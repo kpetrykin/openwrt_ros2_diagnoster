@@ -5,3 +5,9 @@
 ```
 pip3 install openwrt-ubus-rpc
 ```
+
+- Install python package [openwrt-luci-rpc](https://github.com/fbradyirl/openwrt-luci-rpc):
+
+```
+pip3 install openwrt-luci-rpc 
+```

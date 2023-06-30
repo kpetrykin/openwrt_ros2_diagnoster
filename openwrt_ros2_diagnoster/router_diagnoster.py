@@ -14,7 +14,7 @@ class RouterDiagnoster(Node):
 
         self._router_data_getter = router_data_getter
 
-        self.declare_parameter('router_host', 'http://192.168.1.1/ubus')
+        self.declare_parameter('router_host', '192.168.1.1')
         self._router_host = self.get_parameter('router_host')
 
         self.declare_parameter('router_username', 'root')
@@ -34,8 +34,8 @@ class RouterDiagnoster(Node):
         self._free_memory_critical_level = self.get_parameter(
             'free_memory_critical_level')
         
-        self.declare_parameter('internet_signal_critical_level', 20.0)
-        self._internet_signal_critical_level = self.get_parameter('internet_signal_critical_level')
+        self.declare_parameter('reliability_critical_level', 20.0)
+        self._reliability_critical_level = self.get_parameter('reliability_critical_level')
 
     # Decorator for diagnose methods
     def diagnose_method(diag_name):
@@ -107,9 +107,9 @@ class RouterDiagnoster(Node):
                 diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
                 diag_message = f'{modem_name} is not connected to celluar network!'
             if k == 'reliability' and v is not None and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
-                if float(v) <= -self._internet_signal_critical_level.value:
+                if float(v) <= -self._reliability_critical_level.value:
                     diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
-                    diag_message = 'Signal level low!'
+                    diag_message = 'Internet signal reliability low!'
             status_updater.add(k, str(v))
 
         return status_updater, diag_status, diag_message
@@ -128,6 +128,31 @@ class RouterDiagnoster(Node):
                     diag_message = 'Interfaces are OK'
 
         return status_updater, diag_status, diag_message
+    
+    def _diagnose_lan(self, index, status_updater, diag_status, diag_message):
+        link_up = self._router_data_getter.check_interface_link_up(index)
+        status_updater.add('Has link', str(link_up))
+        
+        if link_up:
+            diag_status = diagnostic_msgs.msg.DiagnosticStatus.OK
+            diag_message = f'LAN{index} has link'
+        else:
+            diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
+            diag_message = f'LAN{index} has no link!'
+        
+        return status_updater, diag_status, diag_message
+    
+    @diagnose_method('LAN1')
+    def diagnose_lan1(self, status_updater, diag_status, diag_message):
+        return self._diagnose_lan(1, status_updater, diag_status, diag_message)
+    
+    @diagnose_method('LAN2')
+    def diagnose_lan2(self, status_updater, diag_status, diag_message):
+        return self._diagnose_lan(2, status_updater, diag_status, diag_message)
+    
+    @diagnose_method('LAN3')
+    def diagnose_lan3(self, status_updater, diag_status, diag_message):
+        return self._diagnose_lan(3, status_updater, diag_status, diag_message)
 
 
 def main(args=None):
@@ -142,6 +167,9 @@ def main(args=None):
     updater.add('/router/devices/cpu', rd.diagnose_cpu)
     updater.add('/router/devices/memory', rd.diagnose_memory)
     updater.add('/router/devices/interfaces', rd.diagnose_interfaces)
+    updater.add('/router/devices/lan/lan1', rd.diagnose_lan1)
+    updater.add('/router/devices/lan/lan2', rd.diagnose_lan2)
+    updater.add('/router/devices/lan/lan3', rd.diagnose_lan3)
     updater.add('/router/internet_connection/modem1', rd.diagnose_modem1)
     updater.add('/router/internet_connection/modem2', rd.diagnose_modem2)
 
