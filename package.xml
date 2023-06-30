@@ -7,6 +7,8 @@
   <maintainer email="kpetrykin@gmail.com">memristor</maintainer>
   <license>TODO: License declaration</license>
 
+  <depend>diagnostic_updater</depend>
+
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>
   <test_depend>ament_pep257</test_depend>
