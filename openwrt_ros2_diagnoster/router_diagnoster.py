@@ -170,8 +170,8 @@ def main(args=None):
     updater.add('/router/devices/lan/lan1', rd.diagnose_lan1)
     updater.add('/router/devices/lan/lan2', rd.diagnose_lan2)
     updater.add('/router/devices/lan/lan3', rd.diagnose_lan3)
-    updater.add('/router/internet_connection/modem1', rd.diagnose_modem1)
-    updater.add('/router/internet_connection/modem2', rd.diagnose_modem2)
+    updater.add('/router/celluar_network1', rd.diagnose_modem1)
+    updater.add('/router/celluar_network2', rd.diagnose_modem2)
 
     rclpy.spin(rd)
     rd.destroy_node()
