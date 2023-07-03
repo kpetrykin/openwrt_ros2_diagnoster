@@ -1,6 +1,8 @@
 from typing import List, Dict
 from openwrt.ubus import Ubus
 import pprint
+import json
+import json
 from openwrt_luci_rpc import OpenWrtLuciRPC
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -56,6 +58,8 @@ class OpenWRTDataGetter:
 
     def get_modem(self, modem_index) -> Dict:
         r = self._ubus_api_call("call", "kroks.dev.modem", "object", {})
+
+        self.get_rtt(modem_index)
         if r is not None:
             # pp.pprint(r['modem1'])
             modem = {}
@@ -63,23 +67,14 @@ class OpenWRTDataGetter:
             modem['reliability'] = r[modem_index]['kroks.net.check']['reliability']
 
             modem['online'] = False
-            rtt_avg = 0
-            rtt_counter = 0
             for check in r[modem_index]['kroks.net.check']['check']:
                 if check['status'] == True:
                     modem['online'] = True
-                if 'rtt_avg' in check:
-                    # print('rtt_avg: ', check['rtt_avg'])
-                    rtt_avg += float(check['rtt_avg'])
-                    rtt_counter += 1
-
-            if rtt_counter != 0:
-                modem['RTT'] = rtt_avg / rtt_counter
-            else:
-                modem['RTT'] = 0
 
             modem['RSSI'] = None
             modem['network_type'] = None
+            
+            modem['RTT'] = str(f'{self.get_rtt(modem_index):.2f}')
 
             try:
                 for k, v in r[modem_index]['storage']['signal'].items():
@@ -129,6 +124,29 @@ class OpenWRTDataGetter:
         else:
             print('Failed to get interfaces info')
             raise ConnectionError("Connection to router lost")
+        
+    def get_rtt(self, modem_index):
+        rtt = 0.0
+        cmd = 'ubus call kroks.net.check storage ' + "'{" + '"interface":"' + modem_index + '"}' + "'"
+        
+        result = self._luci_api_call(
+            f'http://{self._host}/cgi-bin/luci/rpc/sys',
+            'exec',
+            cmd)
+        
+        parsed_result = json.loads(result)
+        
+        rtt_avg = 0
+        rtt_counter = 0
+        for check in parsed_result['check']:
+            if 'rtt_avg' in check:
+                rtt_avg += float(check['rtt_avg'])
+                rtt_counter += 1
+
+        if rtt_counter != 0:
+            rtt = rtt_avg / rtt_counter
+        
+        return rtt
 
     def check_interface_link_up(self, index: int) -> bool:
         # Weird true LAN ports order
