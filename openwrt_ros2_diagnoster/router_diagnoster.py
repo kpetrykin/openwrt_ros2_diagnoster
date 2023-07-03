@@ -100,6 +100,12 @@ class RouterDiagnoster(Node):
     def _diagnose_modem(self, modem_name, status_updater, diag_status, diag_message):
         modem_data = self._router_data_getter.get_modem(modem_name)
         for k, v in modem_data.items():
+            if k == 'network_type' and v in ['umts', 'evdo']:
+                diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
+                diag_message = 'Celluar network is 3G'
+            if k == 'network_type' and v in ['cdma1x', 'gsm']:
+                diag_status = diagnostic_msgs.msg.DiagnosticStatus.ERROR
+                diag_message = 'Celluar network is 2G!'
             if k == 'online' and v == False and diag_status != diagnostic_msgs.msg.DiagnosticStatus.ERROR:
                 diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
                 diag_message = f'{modem_name} is offline!'
@@ -110,6 +116,7 @@ class RouterDiagnoster(Node):
                 if float(v) <= -self._reliability_critical_level.value:
                     diag_status = diagnostic_msgs.msg.DiagnosticStatus.WARN
                     diag_message = 'Internet signal reliability low!'
+            
             status_updater.add(k, str(v))
 
         return status_updater, diag_status, diag_message
@@ -172,6 +179,10 @@ def main(args=None):
     updater.add('/router/devices/lan/lan3', rd.diagnose_lan3)
     updater.add('/router/celluar_network1', rd.diagnose_modem1)
     updater.add('/router/celluar_network2', rd.diagnose_modem2)
+    
+    # TODO: 2g - error, 3g - warn, 4g, 5g - OK
+    # TODO: RTT
+    # TODO: interfaces split to modems
 
     rclpy.spin(rd)
     rd.destroy_node()

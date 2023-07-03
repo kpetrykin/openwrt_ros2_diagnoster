@@ -79,13 +79,19 @@ class OpenWRTDataGetter:
                 modem['RTT'] = 0
 
             modem['RSSI'] = None
+            modem['network_type'] = None
 
             try:
                 for k, v in r[modem_index]['storage']['signal'].items():
                     if 'rssi' in v:
                         if v['rssi'] != '--':
                             modem['RSSI'] = v['rssi']
+                            modem['network_type'] = k
                             break
+                    if k == '5g':
+                        if v['rsrp'] != '--':
+                            modem['network_type'] = k
+                        
             except:
                 pass
 
